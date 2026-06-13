@@ -78,48 +78,50 @@ export default function Creditos() {
 
       {/* Tabla de Créditos */}
       <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-50 border-b border-slate-200">
-            <tr>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Código</th>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Cliente</th>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Vehículo</th>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Monto Financiado</th>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Plazo</th>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Estado</th>
-              <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {creditos.map((credito) => (
-              <tr key={credito.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4 text-sm font-mono font-bold text-slate-500">{credito.id}</td>
-                <td className="px-6 py-4 text-sm font-medium text-slate-900">{credito.cliente}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{credito.vehiculo}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">
-                  <div>{credito.total}</div>
-                  <div className="text-xs text-slate-400">Inicial: {credito.inicial}</div>
-                </td>
-                <td className="px-6 py-4 text-sm text-slate-600">{credito.cuotas} meses</td>
-                <td className="px-6 py-4 text-sm">
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${credito.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                    credito.estado === 'Pendiente' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                      'bg-rose-50 text-rose-700 border border-rose-200'
-                    }`}>
-                    {credito.estado}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-sm text-right">
-                  <button
-                    onClick={() => handleVerPlan(credito)}
-                    className="text-slate-500 hover:text-emerald-600 p-1 rounded-md hover:bg-slate-100 transition-colors" title="Ver plan de pagos">
-                    <FileText size={18} />
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[900px]">
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Código</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Cliente</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Vehículo</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Monto Financiado</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Plazo</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm">Estado</th>
+                <th className="px-6 py-4 font-semibold text-slate-700 text-sm text-right">Acciones</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {creditos.map((credito) => (
+                <tr key={credito.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 text-sm font-mono font-bold text-slate-500">{credito.id}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-slate-900">{credito.cliente}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{credito.vehiculo}</td>
+                  <td className="px-6 py-4 text-sm text-slate-600">
+                    <div>{credito.total}</div>
+                    <div className="text-xs text-slate-400">Inicial: {credito.inicial}</div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-600">{credito.cuotas} meses</td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${credito.estado === 'Aprobado' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                      credito.estado === 'Pendiente' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                        'bg-rose-50 text-rose-700 border border-rose-200'
+                      }`}>
+                      {credito.estado}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-right">
+                    <button
+                      onClick={() => handleVerPlan(credito)}
+                      className="text-slate-500 hover:text-emerald-600 p-1 rounded-md hover:bg-slate-100 transition-colors" title="Ver plan de pagos">
+                      <FileText size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <ModalNuevoCredito isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
