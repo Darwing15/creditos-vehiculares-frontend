@@ -1,4 +1,4 @@
-import { X, User, Briefcase, MapPin, Phone, Mail, DollarSign } from 'lucide-react';
+import { X, User, Briefcase, MapPin} from 'lucide-react';
 
 interface ModalNuevoClienteProps {
   isOpen: boolean;

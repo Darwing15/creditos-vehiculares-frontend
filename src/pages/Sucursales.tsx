@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import {
-    Store,
     Plus,
     MapPin,
     Phone,
     User,
     Edit3,
     Coins,
-    Building2,
     Search,
     CheckCircle,
     XCircle

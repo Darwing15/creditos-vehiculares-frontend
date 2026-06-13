@@ -91,7 +91,7 @@ export default function Dashboard() {
                 <YAxis axisLine={false} tickLine={false} stroke="#94a3b8" fontSize={12} />
                 <Tooltip cursor={{ fill: '#f8fafc' }} />
                 <Bar dataKey="ventas" radius={[4, 4, 0, 0]}>
-                  {data.map((entry, index) => (
+                  {data.map((_entry, index) => (
                     <Cell key={`cell-${index}`} fill={index === data.length - 1 ? '#059669' : '#cbd5e1'} />
                   ))}
                 </Bar>

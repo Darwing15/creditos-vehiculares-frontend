@@ -8,8 +8,6 @@ import {
     Edit2,
     CheckCircle,
     XCircle,
-    X,
-    Key,
     ToggleLeft
 } from 'lucide-react';
 import ModalNuevoUsuario from '../components/ModalNuevoUsuario';
@@ -22,7 +20,7 @@ const usuariosIniciales = [
 ];
 
 export default function Usuarios() {
-    const [usuarios, setUsuarios] = useState(usuariosIniciales);
+    const [usuarios] = useState(usuariosIniciales);
     const [modalOpen, setModalOpen] = useState(false);
     const [usuarioEdicion, setUsuarioEdicion] = useState<any>(null);
 

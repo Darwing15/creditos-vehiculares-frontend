@@ -1,4 +1,4 @@
-import { X, ArrowUpRight, ArrowDownRight, DollarSign, ReceiptText } from 'lucide-react';
+import { X, ArrowUpRight, ArrowDownRight, ReceiptText } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 interface ModalMovimientoProps {
