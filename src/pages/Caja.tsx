@@ -186,7 +186,7 @@ export default function Caja() {
                             {movimientos.map((m) => (
                                 <tr key={m.id} className="hover:bg-slate-50/70 transition-colors">
                                     <td className="px-6 py-3.5 font-mono font-medium text-slate-600">{m.id}</td>
-                                    <td className="px-6 py-3.5 text-slate-500">{m.hora}</td>
+                                    <td className="px-6 py-3.5 text-slate-500 whitespace-nowrap">{m.hora}</td>
                                     <td className="px-6 py-3.5">
                                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${m.tipo === 'ingreso' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
                                             }`}>
@@ -194,9 +194,9 @@ export default function Caja() {
                                             {m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso'}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-3.5 font-medium text-slate-700 max-w-xs truncate">{m.concepto}</td>
+                                    <td className="px-6 py-3.5 font-medium text-slate-700 min-w-[300px] whitespace-normal break-words">{m.concepto}</td>
                                     <td className="px-6 py-3.5 text-slate-500">{m.metodo}</td>
-                                    <td className={`px-6 py-3.5 text-right font-bold ${m.tipo === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
+                                    <td className={`px-6 py-3.5 text-right font-bold whitespace-nowrap ${m.tipo === 'ingreso' ? 'text-emerald-600' : 'text-rose-600'
                                         }`}>
                                         {m.tipo === 'ingreso' ? '+' : '-'} S/ {m.monto.toFixed(2)}
                                     </td>

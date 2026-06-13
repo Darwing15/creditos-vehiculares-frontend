@@ -57,46 +57,48 @@ export default function ModalPlanPagos({ isOpen, onClose, credito }: ModalPlanPa
                 </div>
 
                 {/* Tabla de Cuotas (Área scrolleable) */}
-                <div className="flex-1 overflow-auto p-6 bg-slate-50/50">
+                <div className="flex-1 overflow-auto p-4 sm:p-6 bg-slate-50/50">
                     <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200 text-sm text-slate-600">
-                                    <th className="py-3 px-4 font-semibold">N° Cuota</th>
-                                    <th className="py-3 px-4 font-semibold">Vencimiento</th>
-                                    <th className="py-3 px-4 font-semibold">Monto (S/)</th>
-                                    <th className="py-3 px-4 font-semibold">Fecha Pago</th>
-                                    <th className="py-3 px-4 font-semibold">Estado</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-sm">
-                                {mockCuotas.map((cuota) => (
-                                    <tr key={cuota.nro} className="hover:bg-slate-50/80 transition-colors">
-                                        <td className="py-3 px-4 text-slate-600 font-medium">{cuota.nro}</td>
-                                        <td className="py-3 px-4 text-slate-700">{cuota.fecha}</td>
-                                        <td className="py-3 px-4 text-slate-800 font-semibold">{cuota.monto.toFixed(2)}</td>
-                                        <td className="py-3 px-4 text-slate-500">{cuota.fechaPago}</td>
-                                        <td className="py-3 px-4">
-                                            {cuota.estado === 'Pagado' && (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                                    <CheckCircle size={14} /> Pagado
-                                                </span>
-                                            )}
-                                            {cuota.estado === 'Pendiente' && (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                                                    <Clock size={14} /> Pendiente
-                                                </span>
-                                            )}
-                                            {cuota.estado === 'Vencido' && (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200">
-                                                    <AlertCircle size={14} /> Vencido
-                                                </span>
-                                            )}
-                                        </td>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse min-w-[800px]">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200 text-sm text-slate-600">
+                                        <th className="py-3 px-4 font-semibold whitespace-nowrap">N° Cuota</th>
+                                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Vencimiento</th>
+                                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Monto (S/)</th>
+                                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Fecha Pago</th>
+                                        <th className="py-3 px-4 font-semibold whitespace-nowrap">Estado</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-sm">
+                                    {mockCuotas.map((cuota) => (
+                                        <tr key={cuota.nro} className="hover:bg-slate-50/80 transition-colors">
+                                            <td className="py-3 px-4 text-slate-600 font-medium">{cuota.nro}</td>
+                                            <td className="py-3 px-4 text-slate-700">{cuota.fecha}</td>
+                                            <td className="py-3 px-4 text-slate-800 font-semibold">{cuota.monto.toFixed(2)}</td>
+                                            <td className="py-3 px-4 text-slate-500">{cuota.fechaPago}</td>
+                                            <td className="py-3 px-4">
+                                                {cuota.estado === 'Pagado' && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                        <CheckCircle size={14} /> Pagado
+                                                    </span>
+                                                )}
+                                                {cuota.estado === 'Pendiente' && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                                        <Clock size={14} /> Pendiente
+                                                    </span>
+                                                )}
+                                                {cuota.estado === 'Vencido' && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                                                        <AlertCircle size={14} /> Vencido
+                                                    </span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
