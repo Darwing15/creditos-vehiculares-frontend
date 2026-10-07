@@ -1,172 +1,335 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-    UserPlus,
-    Search,
-    Shield,
-    Mail,
-    MapPin,
-    Edit2,
-    CheckCircle,
-    XCircle,
-    ToggleLeft
+    UserPlus, Search, Shield, Mail, MapPin,
+    Edit2, CheckCircle, XCircle, ToggleLeft,
 } from 'lucide-react';
 import ModalNuevoUsuario from '../components/ModalNuevoUsuario';
+import { apiErrorMessage } from '../api/http';
+import { usersApi } from '../api/securityApi';
+import type {
+    CreateUserRequest, UpdateUserRequest, UserResponse,
+} from '../api/securityApi';
+import { useAuthStore } from '../stores/authStore';
 
-// Datos de ejemplo para la simulación del personal de la empresa
-const usuariosIniciales = [
-    { id: 1, nombre: 'Rosalina Gonzales Marchena', email: 'nina.g@tienda.com', rol: 'Administrador', sucursal: 'Sede Central (Tocache)', estado: 'activo' },
-    { id: 2, nombre: 'Walter Sotomayoy Chambi', email: 'walter.sotomayor@tienda.com', rol: 'Cajero', sucursal: 'Sede Central (Tocache)', estado: 'activo' },
-    { id: 3, nombre: 'Ronal Sotomayor Gonzales', email: 'ronal.sotomayor@tienda.com', rol: 'Asesor Comercial', sucursal: 'Sucursal Tingo María', estado: 'activo' },
-];
-
+/**
+ * Consulta y administra usuarios usando las respuestas reales de seguridad.
+ * Los filtros operan sobre la lista recibida; esta API aún no ofrece paginación.
+ * @author DarwinG
+ */
 export default function Usuarios() {
-    const [usuarios] = useState(usuariosIniciales);
+    const permissions = useAuthStore((state) => state.user?.permissions);
+    const canWrite = permissions?.includes('security:users:write') === true;
+    const canCreate = canWrite &&
+        permissions?.includes('security:users:assign-role') === true &&
+        permissions?.includes('security:roles:read') === true &&
+        permissions?.includes('security:branches:read') === true;
+    /** Lista visible/setter; solo incorpora registros leídos o confirmados por la API. */
+    const [usuarios, setUsuarios] = useState<UserResponse[]>([]);
+    /** Registro seleccionado/setter; null distingue creación de edición. */
+    const [usuarioEdicion, setUsuarioEdicion] = useState<UserResponse | null>(null);
+    /** Estado/setter de la carga inicial; permite diferenciar carga de una lista vacía. */
+    const [loading, setLoading] = useState(true);
+    /** Estado/setter de una escritura; compartido para deshabilitar acciones mientras se espera. */
+    const [saving, setSaving] = useState(false);
+    /** Mensaje/setter de consulta o escritura; presentarlo dentro del modal cuando está abierto. */
+    const [error, setError] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
-    const [usuarioEdicion, setUsuarioEdicion] = useState<any>(null);
+    const [search, setSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('');
+    const [branchFilter, setBranchFilter] = useState('');
+
+    /**
+     * Efecto de montaje: carga la lista una vez por instancia de la pantalla.
+     * El callback retorna una limpieza que cancela la solicitud al desmontar.
+     * Los callbacks ignoran una respuesta cancelada para no sobrescribir estado obsoleto.
+     */
+    useEffect(() => {
+        /** Cancelación de esta carga; no se reutiliza para operaciones de escritura. */
+        const controller = new AbortController();
+        usersApi.list(controller.signal)
+            /** Recibe data como array del backend y adapta cada registro al JSX existente. */
+            .then((data) => {
+                if (!controller.signal.aborted) setUsuarios(data);
+            })
+            .catch((cause: unknown) => {
+                if (!controller.signal.aborted) setError(apiErrorMessage(cause));
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setLoading(false);
+            });
+        return () => controller.abort();
+    }, []);
+
+    /** Deriva filtros de registros reales y compara IDs, nunca etiquetas de autorización. */
+    const roleOptions = useMemo(
+        () => Array.from(new Map(
+            usuarios.map((user) => [user.roleId, user.roleName] as const),
+        )),
+        [usuarios],
+    );
+    const branchOptions = useMemo(
+        () => Array.from(new Map(
+            usuarios.map((user) => [user.branchId, user.branchName] as const),
+        )),
+        [usuarios],
+    );
+    const visibleUsers = useMemo(() => {
+        const needle = search.trim().toLocaleLowerCase();
+        return usuarios.filter((user) =>
+            (!needle ||
+                user.fullName.toLocaleLowerCase().includes(needle) ||
+                user.email.toLocaleLowerCase().includes(needle) ||
+                user.roleName.toLocaleLowerCase().includes(needle)) &&
+            (!roleFilter || user.roleId === Number(roleFilter)) &&
+            (!branchFilter || user.branchId === Number(branchFilter)),
+        );
+    }, [usuarios, search, roleFilter, branchFilter]);
+
+    /**
+     * Inserta o sustituye solo una respuesta confirmada por el servidor.
+     * @param user Registro devuelto por POST, PUT o PATCH.
+     * @returns Nada; programa una actualización funcional de la lista local.
+     * @remarks No hace una actualización optimista antes de que el servidor confirme.
+     */
+    const upsertUser = (user: UserResponse) => {
+        setUsuarios((previous) => previous.some((item) => item.id === user.id)
+            ? previous.map((item) => item.id === user.id ? user : item)
+            : [...previous, user]);
+    };
+
+    /**
+     * Alta y edición usan payloads distintos: la contraseña inicial nunca va en PUT.
+     * En fallo, conserva el formulario y muestra el mensaje dentro del modal.
+     * @param values Campos administrativos con roleId/branchId numéricos, sin contraseña.
+     * @param initialPassword Contraseña obligatoria solo en alta; nunca se agrega al PUT.
+     * @returns Promesa resuelta después de actualizar la lista o presentar el error.
+     * @remarks Los fallos se guardan en error para conservar el formulario abierto; no se relanzan.
+     */
+    const guardarUsuario = async (
+        values: UpdateUserRequest, initialPassword?: string,
+    ): Promise<void> => {
+        if (saving) return;
+        setSaving(true);
+        setError(null);
+        try {
+            let saved: UserResponse;
+            if (usuarioEdicion) {
+                saved = await usersApi.update(usuarioEdicion.id, values);
+            } else {
+                if (!initialPassword) {
+                    throw new Error('La contraseña inicial es obligatoria.');
+                }
+                const request: CreateUserRequest = {
+                    ...values,
+                    password: initialPassword,
+                };
+                saved = await usersApi.create(request);
+            }
+            upsertUser(saved);
+            setModalOpen(false);
+            setUsuarioEdicion(null);
+        } catch (cause) {
+            setError(apiErrorMessage(cause));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    /**
+     * Solicita confirmación antes de desactivar y actualiza el estado devuelto por el backend.
+     * @param user Registro seleccionado; active evita ofrecer de nuevo una desactivación ya reflejada.
+     * @returns Promesa resuelta tras actualizar la lista o mostrar un error.
+     * @remarks No implementa reactivación ni autoriza la acción: eso corresponde al servidor.
+     */
+    const desactivarUsuario = async (user: UserResponse): Promise<void> => {
+        if (saving || !user.active) return;
+        if (!window.confirm('¿Desactivar a ' + user.fullName + '?')) return;
+        setSaving(true);
+        setError(null);
+        try {
+            upsertUser(await usersApi.deactivate(user.id));
+        } catch (cause) {
+            setError(apiErrorMessage(cause));
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const abrirModalNuevo = () => {
+        setError(null);
         setUsuarioEdicion(null);
         setModalOpen(true);
     };
 
-    const abrirModalEditar = (usuario: any) => {
-        setUsuarioEdicion(usuario);
+    const abrirModalEditar = (user: UserResponse) => {
+        setError(null);
+        setUsuarioEdicion(user);
         setModalOpen(true);
     };
 
+    const cerrarModal = () => {
+        if (saving) return;
+        setModalOpen(false);
+        setUsuarioEdicion(null);
+        setError(null);
+    };
+
     return (
-        <div className="p-6 space-y-6">
-
-            {/* Encabezado */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-6 p-6">
+            <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Control de Usuarios y Permisos</h1>
-                    <p className="text-slate-500">Administra el personal, asigna roles de seguridad y sucursales</p>
+                    <h1 className="text-2xl font-bold text-slate-800">Control de usuarios y permisos</h1>
+                    <p className="text-slate-500">Administra personal, roles y sucursales.</p>
                 </div>
+                {canCreate && (
+                    <button
+                        type="button"
+                        onClick={abrirModalNuevo}
+                        disabled={saving}
+                        className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white disabled:opacity-50"
+                    >
+                        <UserPlus size={18} /> Registrar usuario
+                    </button>
+                )}
+            </header>
 
-                <button
-                    onClick={abrirModalNuevo}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all font-medium shadow-sm"
-                >
-                    <UserPlus size={18} /> Registrar Usuario
-                </button>
-            </div>
-
-            {/* Filtros y Buscador */}
-            <div className="bg-white p-4 border border-slate-200 rounded-xl shadow-sm flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
+            {!modalOpen && error && (
+                <p role="alert" className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+                    {error}
+                </p>
+            )}
+            <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row">
+                <label className="relative flex-1">
+                    <span className="sr-only">Buscar usuarios</span>
                     <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
                     <input
-                        type="text"
-                        placeholder="Buscar por nombre, correo o rol..."
-                        className="w-full pl-9 pr-4 py-1.5 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Buscar por nombre, correo o rol"
+                        className="w-full rounded-lg border border-slate-200 py-1.5 pl-9 pr-4 text-sm"
                     />
-                </div>
-                <select className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option value="">Todas las Sucursales</option>
-                    <option value="central">Sede Central</option>
-                    <option value="ate">Sucursal Tingo María</option>
-                </select>
-                <select className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option value="">Todos los Roles</option>
-                    <option value="admin">Administrador</option>
-                    <option value="asesor">Asesor Comercial</option>
-                    <option value="analista">Analista de Crédito</option>
-                    <option value="cajero">Cajero</option>
-                </select>
+                </label>
+                <label>
+                    <span className="sr-only">Filtrar por sucursal</span>
+                    <select
+                        value={branchFilter}
+                        onChange={(event) => setBranchFilter(event.target.value)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+                    >
+                        <option value="">Todas las sucursales</option>
+                        {branchOptions.map(([id, name]) => (
+                            <option key={id} value={id}>{name}</option>
+                        ))}
+                    </select>
+                </label>
+                <label>
+                    <span className="sr-only">Filtrar por rol</span>
+                    <select
+                        value={roleFilter}
+                        onChange={(event) => setRoleFilter(event.target.value)}
+                        className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm"
+                    >
+                        <option value="">Todos los roles</option>
+                        {roleOptions.map(([id, name]) => (
+                            <option key={id} value={id}>{name}</option>
+                        ))}
+                    </select>
+                </label>
             </div>
 
-            {/* Tabla de Colaboradores */}
-            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-slate-50 text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+            {loading ? (
+                <p role="status">Cargando usuarios…</p>
+            ) : (
+                <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+                    <table className="w-full border-collapse text-left text-sm">
+                        <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase text-slate-500">
+                            <tr>
                                 <th className="px-6 py-3">Colaborador</th>
-                                <th className="px-6 py-3">Rol / Permisos</th>
-                                <th className="px-6 py-3">Sucursal Asignada</th>
+                                <th className="px-6 py-3">Rol</th>
+                                <th className="px-6 py-3">Sucursal</th>
                                 <th className="px-6 py-3">Estado</th>
                                 <th className="px-6 py-3 text-center">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100 text-sm">
-                            {usuarios.map((u) => (
-                                <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
-
-                                    {/* Info Personal */}
+                        <tbody className="divide-y divide-slate-100">
+                            {visibleUsers.map((user) => (
+                                <tr key={user.id} className="hover:bg-slate-50">
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-9 h-9 bg-slate-100 text-slate-700 font-bold rounded-full flex items-center justify-center text-sm border border-slate-200">
-                                                {u.nombre.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
-                                            </div>
-                                            <div>
-                                                <h4 className="font-semibold text-slate-800">{u.nombre}</h4>
-                                                <span className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                                                    <Mail size={12} /> {u.email}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    {/* Rol */}
-                                    <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium ${u.rol === 'Administrador' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
-                                            u.rol === 'Analista de Crédito' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                                                u.rol === 'Cajero' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                                                    'bg-slate-100 text-slate-700'
-                                            }`}>
-                                            <Shield size={12} />
-                                            {u.rol}
+                                        <strong>{user.fullName}</strong>
+                                        <span className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                                            <Mail size={12} /> {user.email}
                                         </span>
                                     </td>
-
-                                    {/* Sucursal */}
-                                    <td className="px-6 py-4 text-slate-600">
-                                        <span className="flex items-center gap-1.5 text-xs font-medium">
-                                            <MapPin size={14} className="text-slate-400" />
-                                            {u.sucursal}
-                                        </span>
-                                    </td>
-
-                                    {/* Estado */}
                                     <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${u.estado === 'activo' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                                            }`}>
-                                            {u.estado === 'activo' ? <CheckCircle size={12} /> : <XCircle size={12} />}
-                                            {u.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                                        <span className="flex items-center gap-1">
+                                            <Shield size={14} /> {user.roleName}
                                         </span>
                                     </td>
-
-                                    {/* Botones de acción */}
-                                    <td className="px-6 py-4 text-center">
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button
-                                                onClick={() => abrirModalEditar(u)}
-                                                className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-slate-100 rounded-md transition-colors"
-                                                title="Editar Datos"
-                                            >
-                                                <Edit2 size={15} />
-                                            </button>
-                                            <button
-                                                className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded-md transition-colors"
-                                                title="Cambiar Estado / Bloquear"
-                                            >
-                                                <ToggleLeft size={16} />
-                                            </button>
+                                    <td className="px-6 py-4">
+                                        <span className="flex items-center gap-1">
+                                            <MapPin size={14} /> {user.branchName}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className="flex items-center gap-1">
+                                            {user.active
+                                                ? <CheckCircle size={14} className="text-emerald-600" />
+                                                : <XCircle size={14} className="text-rose-600" />}
+                                            {user.active ? 'Activo' : 'Inactivo'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex justify-center gap-2">
+                                            {canWrite && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => abrirModalEditar(user)}
+                                                        disabled={saving || !user.active}
+                                                        title="Editar usuario"
+                                                        aria-label={'Editar a ' + user.fullName}
+                                                        className="rounded-md p-1.5 text-slate-500 hover:text-indigo-600 disabled:opacity-50"
+                                                    >
+                                                        <Edit2 size={16} />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void desactivarUsuario(user)}
+                                                        disabled={saving || !user.active}
+                                                        title="Desactivar usuario"
+                                                        aria-label={'Desactivar a ' + user.fullName}
+                                                        className="rounded-md p-1.5 text-slate-500 hover:text-amber-600 disabled:opacity-50"
+                                                    >
+                                                        <ToggleLeft size={16} />
+                                                    </button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
                             ))}
+                            {visibleUsers.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
+                                        No hay usuarios para los filtros seleccionados.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
-            </div>
+            )}
 
-            <ModalNuevoUsuario
+            {modalOpen && <ModalNuevoUsuario
+                key={usuarioEdicion?.id ?? 'new'}
                 isOpen={modalOpen}
-                onClose={() => setModalOpen(false)}
+                onClose={cerrarModal}
                 usuario={usuarioEdicion}
-            />
+                saving={saving}
+                error={error}
+                onSave={guardarUsuario}
+            />}
         </div>
     );
 }

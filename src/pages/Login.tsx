@@ -1,21 +1,43 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { Motorbike, Mail, Lock } from 'lucide-react';
+import { Motorbike, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { apiErrorMessage } from '../api/http';
 
+/** 
+ * Acceso con visibilidad de contraseña controlada en memoria. 
+ * @author DarwinG 
+ */
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const loginGlobal = useAuthStore((state) => state.login);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  /** Operación de acceso en curso y su setter; bloquea nuevos envíos desde la interfaz. */
+  const [submitting, setSubmitting] = useState(false);
+  /** Mensaje de autenticación/transporte y su setter; nunca almacenar aquí la contraseña. */
+  const [error, setError] = useState<string | null>(null);
 
-    // Simulación: Aceptamos cualquier credencial para el prototipo con data mock
-    if (email && password) {
-      loginGlobal(email); // Inyecta el usuario mock al estado global
-      navigate('/dashboard'); // Redirige al dashboard de inmediato
+  /**
+   * Sustituye la autenticación simulada por login seguido de /me en el store.
+   * @param e Envío del formulario; se evita la navegación HTML convencional.
+   * @returns Promesa que resuelve tras actualizar la UI; los errores se muestran en error.
+   * @remarks Navega solo después de autenticar; finally libera el botón tanto al éxito como al fallo.
+   */
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await loginGlobal(email, password);
+      navigate('/dashboard', { replace: true });
+    } catch (cause) {
+      setError(apiErrorMessage(cause));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -85,13 +107,25 @@ export default function Login() {
                   <Lock size={20} />
                 </div>
                 <input
-                  type="password"
+                  id="login-password"
+                  autoComplete="current-password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-slate-700 bg-slate-50 focus:bg-white"
+                  className="w-full pl-10 pr-12 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-slate-700 bg-slate-50 focus:bg-white"
                   placeholder="••••••••"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(value => !value)}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                  aria-pressed={showPassword}
+                  aria-controls="login-password"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-500 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-emerald-600 rounded-r-xl"
+                >
+                  {showPassword ? <EyeOff size={20} aria-hidden="true" /> : <Eye size={20} aria-hidden="true" />}
+                </button>
               </div>
             </div>
 
@@ -107,12 +141,14 @@ export default function Login() {
               </label>
             </div>
 
+            {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
             {/* Botón Ingresar */}
             <button
               type="submit"
+              disabled={submitting}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-all active:scale-[0.98] shadow-md hover:shadow-lg flex justify-center items-center"
             >
-              Ingresar al Sistema
+              {submitting ? 'Ingresando…' : 'Ingresar al Sistema'}
             </button>
           </form>
         </div>

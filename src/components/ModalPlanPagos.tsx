@@ -42,11 +42,11 @@ export default function ModalPlanPagos({ isOpen, onClose, credito }: ModalPlanPa
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <p className="text-xs text-slate-500 uppercase font-semibold">Monto Total</p>
-                        <p className="text-sm font-medium text-slate-800 mt-1">{credito.monto}</p>
+                        <p className="text-sm font-medium text-slate-800 mt-1">{credito.total}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <p className="text-xs text-slate-500 uppercase font-semibold">Plazo</p>
-                        <p className="text-sm font-medium text-slate-800 mt-1">{credito.plazo}</p>
+                        <p className="text-sm font-medium text-slate-800 mt-1">{credito.cuotas}</p>
                     </div>
                     <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
                         <p className="text-xs text-slate-500 uppercase font-semibold">Estado</p>
