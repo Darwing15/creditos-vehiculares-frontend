@@ -4,6 +4,14 @@
  * @author DarwinG
  */
 export const ERROR_MESSAGES = {
+    IDENTITY_DOCUMENT_INVALID: 'El DNI debe tener exactamente ocho dígitos.',
+    IDENTITY_NOT_FOUND: 'No se encontraron datos para este DNI. Verifica el documento.',
+    IDENTITY_LOOKUP_DISABLED: 'La consulta de DNI no está habilitada. Puedes ingresar el nombre manualmente.',
+    IDENTITY_RATE_LIMITED: 'Espera un momento antes de volver a consultar el DNI.',
+    IDENTITY_QUOTA_EXHAUSTED: 'Se alcanzó el límite de consultas. Puedes ingresar el nombre manualmente.',
+    IDENTITY_PROVIDER_UNAVAILABLE: 'No se pudo consultar el DNI. Puedes reintentar o ingresar el nombre manualmente.',
+    IDENTITY_PROVIDER_TIMEOUT: 'La consulta de DNI tardó demasiado. Puedes reintentar o ingresar el nombre manualmente.',
+    IDENTITY_PROVIDER_INVALID_RESPONSE: 'No se pudieron validar los datos de la consulta. Ingresa el nombre manualmente.',
     USER_NOT_FOUND: 'No se encontró el usuario.',
     USER_ALREADY_EXISTS: 'Ya existe un usuario con ese correo electrónico.',
     USER_INACTIVE: 'El usuario está inactivo. Consulta con el administrador.',
@@ -62,6 +70,7 @@ export const ERROR_MESSAGES = {
  * @author DarwinG 
  */
 export const UI_MESSAGES = {
+    INVALID_IDENTITY_RESPONSE: 'No se pudieron validar los datos de la consulta de DNI.',
     VEHICLE_EDIT_BLOCKED: 'El vehículo ya está reservado o vendido. Cierra el formulario y actualiza el inventario.',
     SERVICE_UNAVAILABLE: 'Servicio no disponible. Revisa tu conexión e intenta nuevamente más tarde.',
     TIMEOUT: 'El servicio tardó demasiado en responder. Intenta nuevamente más tarde.',
@@ -107,6 +116,13 @@ export interface ApiFailure {
 export function userMessageForFailure(failure: ApiFailure): string {
     if (failure.transportCode === 'ERR_CANCELED')
         return UI_MESSAGES.OPERATION_CANCELLED;
+    /* Codigos de consulta externa: conservar el mensaje sin ocultar fallos de autenticacion. */
+    if (typeof failure.errorCode === 'string' && failure.errorCode.startsWith('IDENTITY_')
+        && Object.hasOwn(ERROR_MESSAGES, failure.errorCode)) {
+        if (failure.status === 401) return ERROR_MESSAGES.UNAUTHORIZED;
+        if (failure.status === 403) return ERROR_MESSAGES.FORBIDDEN;
+        return ERROR_MESSAGES[failure.errorCode as keyof typeof ERROR_MESSAGES];
+    }
     if (['ECONNABORTED', 'ETIMEDOUT'].includes(failure.transportCode ?? '') ||
         failure.status === 408 || failure.status === 504)
         return UI_MESSAGES.TIMEOUT;

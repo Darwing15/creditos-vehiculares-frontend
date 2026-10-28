@@ -3,16 +3,25 @@
  * @author DarwinG 
  */
 import { api } from './http';
+import { UiError } from './errorMessages';
 import { catalogApi } from './catalogApi';
 import type { CustomerOption } from './catalogApi';
 
 export type CreateCustomer = {
-    fullName: string; documentType: 'DNI' | 'CE'; documentNumber: string;
-    phone: string | null; email: string | null; occupation: string | null;
-    monthlyIncome: number | null; address: string | null; mapReference: string | null;
+    fullName: string;
+    documentType: 'DNI' | 'CE';
+    documentNumber: string;
+    phone: string | null;
+    email: string | null;
+    occupation: string | null;
+    monthlyIncome: number | null;
+    address: string | null;
+    mapReference: string | null;
 };
 
-export type UpdateCustomer = Omit<CreateCustomer, 'documentType' | 'documentNumber'> & { expectedRevision: string };
+export type UpdateCustomer = Omit<CreateCustomer, 'documentType' | 'documentNumber'> & {
+    expectedRevision: string
+};
 
 export type CustomerDetail = CreateCustomer & {
     id: number;
@@ -22,7 +31,32 @@ export type CustomerDetail = CreateCustomer & {
     revision: string
 };
 
+export type IdentityLookupResult = {
+    documentType: 'DNI';
+    documentNumber: string;
+    givenNames: string;
+    firstSurname: string | null;
+    secondSurname: string | null;
+    fullName: string;
+    provider: 'FACTILIZA';
+    fromCache: boolean;
+    /** Segundos Unix numericos, con posible fraccion decimal, segun JacksonConfig actual. */
+    consultedAt: number;
+    expiresAt: number;
+};
+
 export const customerApi = {
+    /** Consulta a nuestro backend; el token externo nunca llega al navegador. */
+    lookupDni: async (documentNumber: string, signal?: AbortSignal): Promise<IdentityLookupResult> => {
+        const response = await api.post<IdentityLookupResult>('/customers/identity-lookups',
+            { documentType: 'DNI', documentNumber }, { signal });
+        const result = response.data;
+        if (!result || result.documentType !== 'DNI' || result.documentNumber !== documentNumber
+            || typeof result.fullName !== 'string' || !result.fullName.trim() || result.fullName.length > 150)
+            throw new UiError('INVALID_IDENTITY_RESPONSE');
+        return result;
+    },
+
     list: (): Promise<CustomerOption[]> => catalogApi.customers(),
 
     get: async (code: string): Promise<CustomerDetail> => (

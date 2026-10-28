@@ -1,73 +1,40 @@
-# React + TypeScript + Vite
+# Frontend del Sistema de Créditos Vehiculares
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación React, TypeScript y Vite para operaciones de clientes, vehículos y créditos, con permisos del usuario autenticado.
 
-Currently, two official plugins are available:
+## Ejecución
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```text
+npm install
+npm run dev
+npm run build
+npm run lint
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+VITE_API_BASE_URL configura el destino de la API propia; por defecto utiliza /api. El JWT de la sesión se incorpora mediante el transporte autenticado de src/api/http.ts.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Alta de clientes y consulta DNI
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+ModalNuevoCliente activa la búsqueda cuando el documento es DNI y tiene ocho dígitos ASCII. Después de 350 ms, customerApi.lookupDni solicita POST /customers/identity-lookups a la API propia. El backend decide si utiliza caché o Factiliza.
+
+CatalogFormDialog recibe FormLookup como extensión opcional. useFormLookup controla documento, sesión, intento, cancelación y estados de búsqueda. Solo se completa un campo vacío; se conserva cualquier corrección escrita por el operador mientras se espera. Cambiar documento limpia el nombre y descarta respuestas anteriores.
+
+Guardar permanece bloqueado durante la búsqueda. Un fallo permite Reintentar consulta o completar el nombre manualmente. CE requiere quince dígitos en la captura y nombre manual. Editar un cliente existente no consulta automáticamente; tipo/número permanecen inmutables.
+
+La consulta no acredita titularidad ni aprobación crediticia. El nombre continúa editable. No existe token Factiliza en VITE_*, localStorage o contratos del navegador; la credencial externa pertenece exclusivamente al backend.
+
+## Errores
+
+src/api/errorMessages.ts conserva los códigos controlados de identidad para errores de consulta. Los 401/403 de la aplicación mantienen prioridad y no se reinterpretan como saldo externo. customerApi valida que documento y nombre de respuesta puedan utilizarse antes de aplicar el autocompletado.
+
+## Pruebas
+
+Los tests de utilidades están en tests/*.test.ts, incluidos identityMessages.test.ts. Se ejecutan con un Node compatible con strip types:
+
+```text
+node --experimental-strip-types --test tests/*.test.ts
 ```
+
+Las pruebas históricas identityLookupFlows.test.mjs se encuentran en el paquete de entrega del 11/10/2026 y usan API simulada. Para reproducirlas desde este repositorio debe incorporarse el archivo y configurarse Playwright como herramienta de pruebas, sin añadirlo como dependencia de producción. No requieren token real ni consumen cuota externa.
+
+La documentación técnica de backend se encuentra en docs/customers/factiliza-dni.md de su repositorio; describe contrato completo, presupuesto local, persistencia y conservación. Mantener esa referencia como fuente de parámetros para evitar valores divergentes entre README.
